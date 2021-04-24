@@ -2,7 +2,7 @@ from pprint import pprint
 import csv
 import string
 import sre_yield
-
+import time
 
 
 # The function CrosswordsDictionary initializes the crossword as a dictionary where they keys are
@@ -33,15 +33,14 @@ def Intersections(filename,IntersectionMatrix):
 #Whenever a word is added we call UpdateCrossword to update all the words it crosses with the letter that was added
 #in the intersected position
 
-def UpdateCrossword(updatedkey):
+def UpdateCrossword(updatedkey,CrossWordsdict):
     for j in range(0, len(IntersectionsMatrix)):
         if IntersectionsMatrix[updatedkey][j] !=-1:
             AffectedKey=j
             PositionToChange=IntersectionsMatrix[updatedkey][j]
             PositionToCopy=IntersectionsMatrix[j][updatedkey]
-            ValueToCopy=Crosswords[updatedkey][PositionToCopy]
-            Crosswords[AffectedKey][PositionToChange]=ValueToCopy
-
+            ValueToCopy=CrossWordsdict[updatedkey][PositionToCopy]
+            CrossWordsdict[AffectedKey][PositionToChange]=ValueToCopy
 
 
 # To avoid duplicates words generated should be stored in sets
@@ -59,8 +58,8 @@ def RegularExpressionsDictionary(filename,RegularExprDict):
 # the inputs takes into account that the words generated are of the same length as the word they are trying
 #to fill.
 
-def ValidateWord(WordToBePlaced,PlacementPosition):
-    IncompleteWord=Crosswords[PlacementPosition]
+def ValidateWord(WordToBePlaced,PlacementPosition,CrosswordDict):
+    IncompleteWord=CrosswordDict[PlacementPosition]
     for i in range(0,len(IncompleteWord)):
         if IncompleteWord[i]!="." and IncompleteWord[i] !=WordToBePlaced[i]:
             return False
@@ -89,8 +88,61 @@ def SelectWordToFill(CrosswordDict):
     return SelectedKey
 
 
-def SolveCrossword(CrosswordsDict):
-    print("hello")
+def SolveCrossword(CrosswordsInput,counter):
+    # We locate an empty word with the strategy we chose , if the return is -1 it means it didnt find
+    # and we have successfully filled the dictionary.
+    EmptyWordKey=SelectWordToFill(CrosswordsInput)
+    if EmptyWordKey == -1:
+        print("Counts" , counter)
+        return True
+    # We check all the available regular expressions to see which one could possibly generate a word
+    # that would fill the empty word that was selected.
+    for RegularExpression in RegularExpressions:
+        if RegularExpressions[RegularExpression] == 0:
+            #We generate test words from unused regular expressions .
+            TestWords = set(sre_yield.AllStrings(RegularExpression, max_count=5,charset=string.ascii_uppercase))
+
+            # Sets to not show duplicates , following line to sort out words of a different length .
+            TestWords = [word for word in TestWords if len(word) == len(CrosswordsInput[EmptyWordKey])]
+
+
+            keepvalue = CrosswordsInput[EmptyWordKey]
+            keepreg= RegularExpression
+            #Checking if any of the generated words from a single re , fits my empty word .
+
+            for CandidateWord in TestWords:
+                if ValidateWord(CandidateWord,EmptyWordKey,CrosswordsInput):
+                    counter += 1
+
+                    CandidateWordasArray=[]
+                    for letter in CandidateWord:
+                        CandidateWordasArray.append(letter)
+
+                    CrosswordsInput[EmptyWordKey]=CandidateWordasArray
+                    UpdateCrossword(EmptyWordKey, CrosswordsInput)
+
+
+                    RegularExpressions[RegularExpression]=1
+
+                    if SolveCrossword(CrosswordsInput, counter):
+                        return True
+
+                #We need to remove the last word added ,
+                #Make available the regular expressions it used .
+                # remove the intersections it updated
+
+
+
+
+                CrosswordsInput[EmptyWordKey] = keepvalue
+                UpdateCrossword(EmptyWordKey,CrosswordsInput)
+
+
+
+                RegularExpressions[keepreg] = 0
+                pprint(CrosswordsInput)
+
+    return False
 
 
 
@@ -101,29 +153,23 @@ def SolveCrossword(CrosswordsDict):
 
 
 
+start_time = time.time()
 
 Crosswords={}
-CrosswordsDictionary("laughs.csv",Crosswords)
+CrosswordsDictionary("films.csv",Crosswords)
 
 NumberOfWords=len(Crosswords)
 IntersectionsMatrix= [[-1 for i in range(NumberOfWords)] for j in range(NumberOfWords)]
-Intersections("laughs.csv",IntersectionsMatrix)
+Intersections("films.csv",IntersectionsMatrix)
 
 RegularExpressions={}
-RegularExpressionsDictionary("laughs.txt",RegularExpressions)
+RegularExpressionsDictionary("films.txt",RegularExpressions)
 
-
-
-
-
-
-UpdateCrossword(7)
+count=0
+SolveCrossword(Crosswords,count)
 pprint(Crosswords)
 
 
-print(SelectWordToFill(Crosswords))
-# pprint(list(sre_yield.AllStrings("H(EH)+", max_count=5,
-# charset=string.ascii_uppercase)))
 
 
-
+print("--- %s seconds ---" % (time.time() - start_time))
